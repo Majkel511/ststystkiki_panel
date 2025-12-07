@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>ststystkiki overlay</title>
+
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: rgba(0,0,0,0); /* przeźroczyste tło pod OBS */
+      font-family: Arial, Helvetica, sans-serif;
+      color: #fff;
+    }
+
+    .overlay-container {
+      display: inline-block;
+      background: #000;
+      border: 3px solid #302015;
+      padding: 6px 10px;
+      box-shadow: 0 0 10px #000;
+    }
+
+    .scoreboard {
+      border-collapse: collapse;
+      font-weight: bold;
+      font-size: 22px;
+    }
+
+    .scoreboard th,
+    .scoreboard td {
+      padding: 2px 6px;
+      text-align: center;
+    }
+
+    .header-text {
+      font-size: 20px;
+      letter-spacing: 1px;
+    }
+
+    .win-header {
+      color: #00ff00;
+    }
+
+    .lose-header {
+      color: #ff0000;
+    }
+
+    .race-icon img {
+      width: 26px;
+      height: 26px;
+      display: block;
+    }
+
+    .cell {
+      width: 32px;
+    }
+
+    .cell-win {
+      background: #0f4;
+      color: #020;
+    }
+
+    .cell-lose {
+      background: #f22;
+      color: #200;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-container">
+    <table class="scoreboard">
+      <tr>
+        <th></th>
+        <th class="header-text win-header">WIN</th>
+        <th class="header-text lose-header">LOSE</th>
+      </tr>
+      <tr>
+        <td class="race-icon"><img src="icons/terran.png" alt="Terran"></td>
+        <td class="cell cell-win" id="terran-win">00</td>
+        <td class="cell cell-lose" id="terran-lose">00</td>
+      </tr>
+      <tr>
+        <td class="race-icon"><img src="icons/zerg.png" alt="Zerg"></td>
+        <td class="cell cell-win" id="zerg-win">00</td>
+        <td class="cell cell-lose" id="zerg-lose">00</td>
+      </tr>
+      <tr>
+        <td class="race-icon"><img src="icons/protoss.png" alt="Protoss"></td>
+        <td class="cell cell-win" id="protoss-win">00</td>
+        <td class="cell cell-lose" id="protoss-lose">00</td>
+      </tr>
+    </table>
+  </div>
+
+  <script>
+    /* SKOPIUJ TEN SAM CONFIG CO W ststystkiki_control.html */
+    const firebaseConfig = {
+      apiKey: "AIzaSyAjesMhMYFwunWRyHPnV8Z2oyo2Ar4tW_64",
+      authDomain: "ststystkiki-panel.firebaseapp.com",
+      projectId: "ststystkiki-panel",
+      storageBucket: "ststystkiki-panel.firebasestorage.app",
+      messagingSenderId: "694876482324",
+      appId: "1:694876482324:web:5ba0ffa0b3ec000b4e7001",
+      measurementId: "G-T0EX65SYJ9"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const docRef = db.collection('scores').doc('global');
+
+    function formatNumber(num) {
+      return num.toString().padStart(2, '0');
+    }
+
+    function updateDisplay(data) {
+      if (!data) return;
+      const races = ['terran', 'zerg', 'protoss'];
+      races.forEach(r => {
+        const w = data[r]?.win || 0;
+        const l = data[r]?.lose || 0;
+        document.getElementById(r + '-win').textContent  = formatNumber(w);
+        document.getElementById(r + '-lose').textContent = formatNumber(l);
+      });
+    }
+
+    // nasłuch w czasie rzeczywistym – overlay tylko czyta dane
+    docRef.onSnapshot(snapshot => {
+      if (!snapshot.exists) return;
+      updateDisplay(snapshot.data());
+    });
+  </script>
+</body>
+</html>
