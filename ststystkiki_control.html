@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>ststystkiki panel</title>
+
+  <!-- Firebase (wersja web/compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #fff;
+    }
+
+    .overlay-container {
+      display: inline-block;
+      background: #000;
+      border: 3px solid #302015;
+      padding: 6px 10px 10px 10px;
+      box-shadow: 0 0 10px #000;
+      margin: 10px;
+    }
+
+    .scoreboard {
+      border-collapse: collapse;
+      font-weight: bold;
+      font-size: 22px;
+    }
+
+    .scoreboard th,
+    .scoreboard td {
+      padding: 2px 6px;
+      text-align: center;
+    }
+
+    .header-text {
+      font-size: 20px;
+      letter-spacing: 1px;
+    }
+
+    .win-header {
+      color: #00ff00;
+    }
+
+    .lose-header {
+      color: #ff0000;
+    }
+
+    .race-icon img {
+      width: 26px;
+      height: 26px;
+      display: block;
+    }
+
+    .cell {
+      width: 32px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cell-win {
+      background: #0f4;
+      color: #020;
+    }
+
+    .cell-lose {
+      background: #f22;
+      color: #200;
+    }
+
+    .cell:hover {
+      filter: brightness(1.1);
+    }
+
+    #controls {
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    #reset-all {
+      margin-top: 4px;
+      padding: 4px 10px;
+      border: 1px solid #555;
+      background: #222;
+      color: #eee;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    #reset-all:hover {
+      background: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-container">
+    <table class="scoreboard">
+      <tr>
+        <th></th>
+        <th class="header-text win-header">WIN</th>
+        <th class="header-text lose-header">LOSE</th>
+      </tr>
+      <tr>
+        <td class="race-icon"><img src="icons/terran.png" alt="Terran"></td>
+        <td class="cell cell-win"
+            id="terran-win"
+            data-race="terran"
+            data-type="win">00</td>
+        <td class="cell cell-lose"
+            id="terran-lose"
+            data-race="terran"
+            data-type="lose">00</td>
+      </tr>
+      <tr>
+        <td class="race-icon"><img src="icons/zerg.png" alt="Zerg"></td>
+        <td class="cell cell-win"
+            id="zerg-win"
+            data-race="zerg"
+            data-type="win">00</td>
+        <td class="cell cell-lose"
+            id="zerg-lose"
+            data-race="zerg"
+            data-type="lose">00</td>
+      </tr>
+      <tr>
+        <td class="race-icon"><img src="icons/protoss.png" alt="Protoss"></td>
+        <td class="cell cell-win"
+            id="protoss-win"
+            data-race="protoss"
+            data-type="win">00</td>
+        <td class="cell cell-lose"
+            id="protoss-lose"
+            data-race="protoss"
+            data-type="lose">00</td>
+      </tr>
+    </table>
+
+    <div id="controls">
+      <button id="reset-all">RESET wszystkiego</button>
+    </div>
+  </div>
+
+  <script>
+    // >>> TUTAJ WKLEISZ SWÓJ KONFIG Z FIREBASE <<<
+    // Zamień wartości na te z konsoli Firebase (apiKey, authDomain itd.)
+    const firebaseConfig = {
+      apiKey: "TU_WKLEJ_SWOJ_apiKey",
+      authDomain: "TU_WKLEJ_SWOJ_authDomain",
+      projectId: "TU_WKLEJ_SWOJ_projectId",
+      storageBucket: "TU_WKLEJ_SWOJ_storageBucket",
+      messagingSenderId: "TU_WKLEJ_SWOJ_messagingSenderId",
+      appId: "TU_WKLEJ_SWOJ_appId"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const docRef = db.collection('scores').doc('global');
+
+    const defaultData = {
+      terran: { win: 0, lose: 0 },
+      zerg:   { win: 0, lose: 0 },
+      protoss:{ win: 0, lose: 0 }
+    };
+
+    function formatNumber(num) {
+      return num.toString().padStart(2, '0');
+    }
+
+    function updateDisplay(data) {
+      if (!data) return;
+      ['terran', 'zerg', 'protoss'].forEach(r => {
+        const w = data[r]?.win || 0;
+        const l = data[r]?.lose || 0;
+        document.getElementById(r + '-win').textContent  = formatNumber(w);
+        document.getElementById(r + '-lose').textContent = formatNumber(l);
+      });
+    }
+
+    // Nasłuch zmian w Firestore – panel zawsze pokazuje aktualny stan
+    docRef.onSnapshot(async snapshot => {
+      if (!snapshot.exists) {
+        // jeśli dokument nie istnieje – tworzymy domyślne wartości
+        await docRef.set(defaultData);
+        return;
+      }
+      updateDisplay(snapshot.data());
+    });
+
+    // Dodanie 1 po kliknięciu w zielone/czerwone pole
+    async function addResult(race, type) {
+      try {
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(docRef);
+          let data = snap.data() || JSON.parse(JSON.stringify(defaultData));
+          if (!data[race]) data[race] = { win: 0, lose: 0 };
+          data[race][type] = (data[race][type] || 0) + 1;
+          tx.set(docRef, data);
+        });
+      } catch (e) {
+        console.error("Błąd przy zapisie:", e);
+      }
+    }
+
+    // Podpinamy kliknięcia do wszystkich komórek z data-race
+    document.querySelectorAll('.cell[data-race]').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const race = cell.getAttribute('data-race');
+        const type = cell.getAttribute('data-type'); // win/lose
+        addResult(race, type);
+      });
+    });
+
+    // RESET wszystkiego
+    async function resetAll() {
+      if (!confirm("Zresetować wszystkie wyniki?")) return;
+      try {
+        await docRef.set(defaultData);
+      } catch (e) {
+        console.error("Błąd resetu:", e);
+      }
+    }
+
+    document.getElementById('reset-all').addEventListener('click', resetAll);
+  </script>
+</body>
+</html>
